@@ -1,0 +1,25 @@
+<!doctype html>
+<html>
+<head>
+  <link rel="shortcut icon" href="{{ url_for('static',filename='favicon.ico') }}" />
+  <link rel="icon" href="{{ url_for('static',filename='favicon.ico') }}" />
+  <link rel=stylesheet type=text/css href="{{ url_for('static', filename='stylesheets/main.css') }}">
+  <title>RetroMaker</title>
+</head>
+<body>
+<div id="header">
+  <h2>RetroMaker</h2>
+  {% if g.user %}
+  <ul>
+    <li>
+      <a href="/dashboard">dashboard</a>
+    </li>
+    <li>
+      <a href="/logout">logout</a>
+    </li>
+  </ul>
+  {% endif %}
+</div>
+{% block body %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,53 @@
+{% extends "layout.html" %}
+{% block body %}
+  <div>
+    <h2>UserInfo</h2>
+  </div>
+  <div>
+    <h3>Your Account</h3>
+    <div>
+      <img src="{{ user_icon_url }}">
+      {{ g.user.name }}
+    </div>
+  </div>
+  <div>
+    <h3>Target Account</h3>
+    <div>
+      <div>
+	{% if g.user.target_screen_name %}
+	Target Account : {{ g.user.target_screen_name }}
+	{% endif %}
+      </div>
+      <div>
+	<form action="/update" method="post">
+	  対象<input id="target_screen_name" name="target_screen_name" size="30" type="text" />
+	  振り返り間隔(日)<input id="turn_around_span_days" name="turn_around_span_days" size="30" type="text" />
+	  <input name="commit" type="submit" value="submit" />
+	</form>
+      </div>
+    </div>
+  </div>
+  <div>
+    {% if tweets %}
+    {{ tweets|length }} tweets
+    <ul>
+      {% for tweet in tweets %}
+      <li>{{ tweet.screen_name }}:{{ tweet.description }} - {{ tweet.created_at}}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+  <hr />
+  <div>
+    <h4>user_timeline</h4>
+    <form action="/user_timeline" method="post">
+      target:<input id="target_screen_name" name="target_screen_name" size="30" type="text" />
+      daynum:<input id="daynum" name="daynum" size="30" type="text" />
+      <input name="commit" type="submit" value="search" />
+    </form>
+  </div>
+  <hr />
+  <div>
+    <a href="{{ url_for('deactivate') }}">deactivate my acount</a>
+  </div>
+{% endblock %}

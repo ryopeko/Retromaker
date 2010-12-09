@@ -1,0 +1,17 @@
+{% extends "layout.html" %}
+{% block body %}
+  <div id="main">
+    Update Success.
+    Target Account : {{ target }}
+  </div>
+
+  <div>
+    {% if tweets %}
+    <ul>
+      {% for tweet in tweets %}
+      <li>{{ tweet.id }}:{{ tweet.text }} - {{ tweet.created_at}}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+{% endblock %}

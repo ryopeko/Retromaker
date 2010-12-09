@@ -1,0 +1,23 @@
+<!doctype html>
+<html>
+<head>
+  <title>RetroMaker</title>
+</head>
+<body>
+  <div>
+    {% if g.user %}
+    {{ g.user.name }}
+    {% if tweets %}
+      <ul>
+	{% for tweet in tweets %}
+	<li>{{ tweet.id }}:{{ tweet.text }} - {{ tweet.created_at}}</li>
+	{% endfor %}
+      </ul>
+    {% endif %}
+
+    {% else %}
+    <a href="/login"><img src="{{ url_for('static', filename='images/sign-in-with-twitter-l.png') }}"></a>
+    {% endif %}
+  </div>
+</body>
+</html>

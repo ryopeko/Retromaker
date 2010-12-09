@@ -1,0 +1,11 @@
+application: retro-maker
+version: 1
+runtime: python
+api_version: 1
+
+handlers:
+- url: /.*
+  script: app.py
+
+- url: /tweet
+  script: app.py

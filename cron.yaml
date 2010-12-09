@@ -1,0 +1,7 @@
+cron:
+- description: retro tweet
+  url: /tweet
+  schedule: every 1 minutes
+- description: diff update
+  url: /diffupdate
+  schedule: every 12 hours
