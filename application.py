@@ -163,7 +163,7 @@ def user_timeline():
 
 @app.route('/tweet')
 def tweet():
-    users = db.Query(User).fetch(1000)
+    users = db.Query(User).filter('target_screen_name != ', None).fetch(1000)
 
     for user in users:
         g.user = user
@@ -180,7 +180,7 @@ def tweet():
 @app.route('/diffupdate')
 def diff_update():
     now = drop_seconds(datetime.datetime.utcnow())
-    users = db.Query(User).fetch(1000)
+    users = db.Query(User).filter('target_screen_name != ', None).fetch(1000)
     for user in users:
         tweets=[]
         if not user.last_tweet_id == None:
