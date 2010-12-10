@@ -116,22 +116,17 @@ def oauth_authorized(resp):
 
 @app.route('/update', methods=['POST'])
 def update():
-    logging.debug(request.form['target_screen_name'])
     target_screen_name = request.form['target_screen_name']
     current = db.get(session['user_key'])
     current.target_screen_name = target_screen_name
     current.turn_around_span_days = int(request.form['turn_around_span_days'])
     db.put(current)
 
-    now = datetime.datetime.utcnow()
-    now = datetime.datetime(now.year, now.month, now.day, now.hour, now.minute)
-
-    depth = 0
-    tweets = []
+    now = drop_seconds(datetime.datetime.utcnow())
 
     taskqueue.add(url='/user_initialize/' + current.name, method='GET')
 
-    return render_template('update.html', target=request.form['target_screen_name'], tweets=tweets)
+    return render_template('update.html', target=request.form['target_screen_name'])
 
 @app.route('/user_timeline',methods=['POST'])
 def user_timeline():
@@ -177,29 +172,13 @@ def tweet():
                 logging.debug('post error:' + str(tweet.tweet_id))
     return str(len(users))
 
-@app.route('/diffupdate')
-def diff_update():
+@app.route('/push_updatelist')
+def push_updatelist():
     now = drop_seconds(datetime.datetime.utcnow())
     users = db.Query(User).filter('target_screen_name != ', None).fetch(1000)
+
     for user in users:
-        tweets=[]
-        if not user.last_tweet_id == None:
-            g.user = user
-
-            url = 'statuses/user_timeline.json?count=200&screen_name=' + user.target_screen_name + '&since_id=' + str(user.last_tweet_id)
-            resp = selftwitter.get(url)
-
-            if resp.status == 200 and len(resp.data) > 0:
-               tweets = get_target_tweets(resp, now, user.turn_around_span_days)
-            else:
-                logging.debug('Unable to load tweets from Twitter. Maybe out of '
-                              'API calls or Twitter is overloaded.')
-
-            for tweet in tweets:
-                push_tweet(tweet)
-
-            user.last_tweet_id = Tweet.get_last_tweet_id(base_screen_name=user.name, target_screen_name=user.target_screen_name)
-            db.put(user)
+        taskqueue.add(url='/diff_update/' + user.name, method='GET')
         
     return str(len(users))
 
@@ -226,36 +205,64 @@ def logout():
 @app.route('/user_initialize/<username>')
 def user_initialize(username):
     user = User.get(username)
+    if user is None: return 'ng'
+
     g.user = user
 
     now = drop_seconds(datetime.datetime.utcnow())
     depth=0
     tweets=[]
-    if user is not None:
-        while depth < 7:
-            depth += 1
-            logging.debug(depth)
 
-            url = 'statuses/user_timeline.json?count=200&screen_name=' + user.target_screen_name
-            url += '&page=' + str(depth) if depth > 1 else ""
+    while depth < 7:
+        depth += 1
+        logging.debug(depth)
 
-            resp = twitter.get(url)
+        url = 'statuses/user_timeline.json?count=200&screen_name=' + user.target_screen_name
+        url += '&page=' + str(depth) if depth > 1 else ""
 
-            if resp.status == 200 and len(resp.data) > 0:
-               extract_tweets = get_target_tweets(resp, now, user.turn_around_span_days)
-               if len(extract_tweets) == 0: break
+        resp = twitter.get(url)
 
-               tweets += extract_tweets
-            else:
-                logging.debug('Unable to load tweets from Twitter. Maybe out of '
-                              'API calls or Twitter is overloaded.')
-                break
+        if resp.status == 200 and len(resp.data) > 0:
+            extract_tweets = get_target_tweets(resp, now, user.turn_around_span_days)
+            if len(extract_tweets) == 0: break
+
+            tweets += extract_tweets
+        else:
+            logging.debug('Unable to load tweets from Twitter. Maybe out of '
+                          'API calls or Twitter is overloaded.')
+            break
 
     for tweet in tweets:
         push_tweet(tweet)
     user.last_tweet_id = Tweet.get_last_tweet_id(base_screen_name=user.name, target_screen_name=user.target_screen_name)
     db.put(user)
 
+    return 'ok'
+
+@app.route('/diff_update/<username>')
+def diff_update(username):
+    user = User.get(username)
+    if user is None: return 'ng'
+
+    g.user = user
+
+    now = drop_seconds(datetime.datetime.utcnow())
+
+    url = 'statuses/user_timeline.json?count=200&screen_name=' + user.target_screen_name + '&since_id=' + str(user.last_tweet_id)
+    resp = selftwitter.get(url)
+
+    tweets=[]
+    if resp.status == 200 and len(resp.data) > 0:
+        tweets = get_target_tweets(resp, now, user.turn_around_span_days)
+    else:
+        logging.debug('Unable to load tweets from Twitter. Maybe out of '
+                      'API calls or Twitter is overloaded.')
+
+    for tweet in tweets:
+        push_tweet(tweet)
+
+    user.last_tweet_id = Tweet.get_last_tweet_id(base_screen_name=user.name, target_screen_name=user.target_screen_name)
+    db.put(user)
     return 'ok'
 
 
