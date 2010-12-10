@@ -130,39 +130,7 @@ def update():
     tweets = []
 
     taskqueue.add(url='/user_initialize/' + current.name, method='GET')
-    '''
-    db.put(UserInit(name = current.name,
-                    created_at = datetime.datetime.utcnow(),
-                    reset = True))
 
-    memcache.add(key="crowl", value=current.name)
-    '''
-    '''
-    if g.user is not None:
-        while depth < 7:
-            depth += 1
-            logging.debug(depth)
-
-            url = 'statuses/user_timeline.json?count=200&screen_name=' + target_screen_name
-            url += '&page=' + str(depth) if depth > 1 else ""
-
-            resp = twitter.get(url)
-
-            if resp.status == 200 and len(resp.data) > 0:
-               extract_tweets = get_target_tweets(resp, now, current.turn_around_span_days)
-               if len(extract_tweets) == 0: break
-
-               tweets += extract_tweets
-            else:
-                logging.debug('Unable to load tweets from Twitter. Maybe out of '
-                              'API calls or Twitter is overloaded.')
-                break
-
-    for tweet in tweets:
-        push_tweet(tweet)
-    current.last_tweet_id = Tweet.get_last_tweet_id(base_screen_name=current.name, target_screen_name=current.target_screen_name)
-    db.put(current)
-    '''
     return render_template('update.html', target=request.form['target_screen_name'], tweets=tweets)
 
 @app.route('/user_timeline',methods=['POST'])

@@ -56,10 +56,5 @@ class Tweet(db.Model):
         query.order('-tweet_id')
         return query.get().tweet_id
 
-class UserInit(db.Model):
-    name = db.StringProperty()
-    created_at = db.DateTimeProperty()
-    reset = db.BooleanProperty()
-
 def drop_seconds(d):
     return datetime.datetime(d.year, d.month, d.day, d.hour, d.minute)
