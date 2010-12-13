@@ -100,7 +100,7 @@ def oauth_authorized(resp):
         flash(u'You denied the request to sign in.')
         return redirect(next_url)
 
-    user = User.get(resp['user_id'])
+    user = User.get(resp['screen_name'])
 
     if user is None:
         user = User(twitter_id = int(resp['user_id']),
