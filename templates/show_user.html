@@ -39,15 +39,6 @@
   </div>
   <hr />
   <div>
-    <h4>user_timeline</h4>
-    <form action="/user_timeline" method="post">
-      target:<input id="target_screen_name" name="target_screen_name" size="30" type="text" />
-      daynum:<input id="daynum" name="daynum" size="30" type="text" />
-      <input name="commit" type="submit" value="search" />
-    </form>
-  </div>
-  <hr />
-  <div>
     <a href="{{ url_for('deactivate') }}">deactivate my acount</a>
   </div>
 {% endblock %}

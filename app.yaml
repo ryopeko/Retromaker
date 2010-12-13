@@ -4,8 +4,11 @@ runtime: python
 api_version: 1
 
 handlers:
+- url: /cron/.*
+  script: cron.py
+  login: admin
+- url: /task/.*
+  script: taskqueue.py
+  login: admin
 - url: /.*
-  script: app.py
-
-- url: /tweet
   script: app.py

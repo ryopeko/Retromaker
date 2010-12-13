@@ -3,12 +3,8 @@ from flaskext.oauth import OAuth
 app = Flask(__name__)
 
 from google.appengine.ext import db
-from google.appengine.api import users, memcache, taskqueue
+from google.appengine.api import users, taskqueue
 import logging
-import datetime
-import time
-import re
-import hashlib
 
 import conf
 from models import *
@@ -17,25 +13,18 @@ from models import *
 app.debug = True
 logging.getLogger().setLevel(logging.DEBUG)
 
-oauth = OAuth()
-twitter = oauth.remote_app('twitter',
-                           base_url='http://api.twitter.com/1/',
-                           request_token_url='http://api.twitter.com/oauth/request_token',
-                           access_token_url='http://api.twitter.com/oauth/access_token',
-                           authorize_url='http://api.twitter.com/oauth/authenticate',
-                           consumer_key=conf.consumer_key,
-                           consumer_secret=conf.consumer_secret
-)
+def TwitterOAuth():
+    return OAuth().remote_app('twitter',
+                              base_url='http://api.twitter.com/1/',
+                              request_token_url='http://api.twitter.com/oauth/request_token',
+                              access_token_url='http://api.twitter.com/oauth/access_token',
+                              authorize_url='http://api.twitter.com/oauth/authenticate',
+                              consumer_key=conf.consumer_key,
+                              consumer_secret=conf.consumer_secret
+                              )
 
-selfoauth = OAuth()
-selftwitter = selfoauth.remote_app('twitter',
-                                   base_url='http://api.twitter.com/1/',
-                                   request_token_url='http://api.twitter.com/oauth/request_token',
-                                   access_token_url='http://api.twitter.com/oauth/access_token',
-                                   authorize_url='http://api.twitter.com/oauth/authenticate',
-                                   consumer_key=conf.consumer_key,
-                                   consumer_secret=conf.consumer_secret
-                                   )
+twitter = TwitterOAuth()
+selftwitter = TwitterOAuth()
 
 def login_required(path):
     actions = [
@@ -61,10 +50,6 @@ def get_twitter_token():
     if user is not None:
         return user.oauth_token, user.oauth_secret
     return None
-
-@selftwitter.tokengetter
-def selftoken():
-    return conf.oauth_token, conf.oauth_secret
 
 @app.route('/')
 def index():
@@ -122,65 +107,9 @@ def update():
     current.turn_around_span_days = int(request.form['turn_around_span_days'])
     db.put(current)
 
-    now = drop_seconds(datetime.datetime.utcnow())
-
-    taskqueue.add(url='/user_initialize/' + current.name, method='GET')
+    taskqueue.add(url='/task/user_initialize/' + current.name, method='GET')
 
     return render_template('update.html', target=request.form['target_screen_name'])
-
-@app.route('/user_timeline',methods=['POST'])
-def user_timeline():
-    target_screen_name = request.form['target_screen_name']
-    daynum = int(request.form['daynum'])
-    now = drop_seconds(datetime.datetime.utcnow())
-
-    depth = 0
-    tweets=[]
-    if g.user is not None:
-        while depth < 4:
-            depth += 1
-
-            url = 'statuses/user_timeline.json?count=200&screen_name=' + target_screen_name
-            url += '&page=' + str(depth) if depth > 1 else ""
-
-            resp = twitter.get(url)
-
-            if resp.status == 200 and len(resp.data) > 0:
-               extract_tweets = get_target_tweets(resp, now, daynum)
-               if len(extract_tweets) == 0: break
-
-               tweets += extract_tweets
-            else:
-                logging.debug('Unable to load tweets from Twitter. Maybe out of '
-                              'API calls or Twitter is overloaded.')
-                break
-    return render_template('user_timeline.html', tweets=tweets)
-
-@app.route('/tweet')
-def tweet():
-    users = db.Query(User).filter('target_screen_name != ', None).fetch(1000)
-
-    for user in users:
-        g.user = user
-        target_screen_name = user.target_screen_name
-        now = drop_seconds(datetime.datetime.utcnow()) - datetime.timedelta(g.user.turn_around_span_days)
-        tweets = Tweet.get_by_datetime(screen_name=target_screen_name, created_at=now)
-
-        for tweet in tweets:
-            resp = twitter.post('statuses/update.json', data={'status':tweet.description})
-            if not resp.status == 200:
-                logging.debug('post error:' + str(tweet.tweet_id))
-    return str(len(users))
-
-@app.route('/push_updatelist')
-def push_updatelist():
-    now = drop_seconds(datetime.datetime.utcnow())
-    users = db.Query(User).filter('target_screen_name != ', None).fetch(1000)
-
-    for user in users:
-        taskqueue.add(url='/diff_update/' + user.name, method='GET')
-        
-    return str(len(users))
 
 @app.route('/deactivate')
 def deactivate():
@@ -202,103 +131,6 @@ def logout():
     flash('You where signed out')
     return redirect('/')
 
-@app.route('/user_initialize/<username>')
-def user_initialize(username):
-    user = User.get(username)
-    if user is None: return 'ng'
-
-    g.user = user
-
-    now = drop_seconds(datetime.datetime.utcnow())
-    depth=0
-    tweets=[]
-
-    while depth < 7:
-        depth += 1
-        logging.debug(depth)
-
-        url = 'statuses/user_timeline.json?count=200&screen_name=' + user.target_screen_name
-        url += '&page=' + str(depth) if depth > 1 else ""
-
-        resp = twitter.get(url)
-
-        if resp.status == 200 and len(resp.data) > 0:
-            extract_tweets = get_target_tweets(resp, now, user.turn_around_span_days)
-            if len(extract_tweets) == 0: break
-
-            tweets += extract_tweets
-        else:
-            logging.debug('Unable to load tweets from Twitter. Maybe out of '
-                          'API calls or Twitter is overloaded.')
-            break
-
-    for tweet in tweets:
-        push_tweet(tweet)
-    user.last_tweet_id = Tweet.get_last_tweet_id(base_screen_name=user.name, target_screen_name=user.target_screen_name)
-    db.put(user)
-
-    return 'ok'
-
-@app.route('/diff_update/<username>')
-def diff_update(username):
-    user = User.get(username)
-    if user is None: return 'ng'
-
-    g.user = user
-
-    now = drop_seconds(datetime.datetime.utcnow())
-
-    url = 'statuses/user_timeline.json?count=200&screen_name=' + user.target_screen_name + '&since_id=' + str(user.last_tweet_id)
-    resp = selftwitter.get(url)
-
-    tweets=[]
-    if resp.status == 200 and len(resp.data) > 0:
-        tweets = get_target_tweets(resp, now, user.turn_around_span_days)
-    else:
-        logging.debug('Unable to load tweets from Twitter. Maybe out of '
-                      'API calls or Twitter is overloaded.')
-
-    for tweet in tweets:
-        push_tweet(tweet)
-
-    user.last_tweet_id = Tweet.get_last_tweet_id(base_screen_name=user.name, target_screen_name=user.target_screen_name)
-    db.put(user)
-    return 'ok'
-
-
-def push_tweet(tweet):
-    if db.Query(Tweet).filter('base_screen_name = ', g.user.name).filter('tweet_id = ', int(tweet['id'])).fetch(1):
-        logging.debug('duplicate tweet')
-        return
-
-    data = Tweet(tweet_id = int(tweet['id']),
-                 base_screen_name = g.user.name,
-                 screen_name = tweet['user']['screen_name'],
-                 description = tweet['text'],
-                 created_at = string_to_date(tweet['created_at'])
-                 )
-    db.put(data)
-    return
-
-def get_target_tweets(resp, now, daynum):
-    tweets=[]
-    pattern = re.compile("@([a-zA-Z0-9_]+)")
-    for tweet in resp.data:
-        tweet_date = string_to_date(tweet['created_at'])
-
-        if now - tweet_date < datetime.timedelta(daynum):
-            tweet['text'] = pattern.sub(".\\1",tweet['text'])
-            tweets.append(tweet)
-        else:
-            break
-    return tweets
-
-def string_to_date(date_str):
-    d = datetime.datetime.strptime(date_str,'%a %b %d %H:%M:%S +0000 %Y')
-    return drop_seconds(d)
-
-def drop_seconds(d):
-    return datetime.datetime(d.year, d.month, d.day, d.hour, d.minute)
 
 # set the secret key.  keep this really secret:
 app.secret_key = 'the secret key'

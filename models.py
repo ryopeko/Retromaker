@@ -1,6 +1,9 @@
 import datetime
 from google.appengine.ext import db
 
+from flaskext.oauth import OAuth
+import conf
+
 class User(db.Model):
     name = db.StringProperty()
     twitter_id = db.IntegerProperty()
@@ -55,6 +58,14 @@ class Tweet(db.Model):
         query.filter('screen_name = ', target_screen_name)
         query.order('-tweet_id')
         return query.get().tweet_id
+
+    @classmethod
+    def tweet_exist(self, base_screen_name, tweet_id):
+        query = db.Query(Tweet)
+        query.filter('base_screen_name = ', base_screen_name)
+        query.filter('tweet_id = ', int(tweet_id))
+        return query.fetch(1)
+
 
 def drop_seconds(d):
     return datetime.datetime(d.year, d.month, d.day, d.hour, d.minute)

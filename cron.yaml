@@ -1,7 +1,7 @@
 cron:
 - description: retro tweet
-  url: /tweet
+  url: /cron/tweet
   schedule: every 1 minutes
 - description: push diff update list
-  url: /push_updatelist
+  url: /cron/push_updatelist
   schedule: every 12 hours
