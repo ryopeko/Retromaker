@@ -77,7 +77,6 @@ def user_initialize(username):
 
     return 'ok'
 
-
 @app.route('/task/diff_update/<username>')
 def diff_update(username):
     user = User.get(username)
@@ -98,14 +97,32 @@ def diff_update(username):
                       'API calls or Twitter is overloaded.')
 
     for tweet in tweets:
-        tweet.delete()
+        push_tweet(tweet)
 
     user.last_tweet_id = Tweet.get_last_tweet_id(base_screen_name=user.name, target_screen_name=user.target_screen_name)
     db.put(user)
     return 'ok'
 
-@app.route('/task/clearning/<base_screen_name>/<screen_name>')
-def cleaning(base_screen_name, screen_name):
+@app.route('/task/clearner/<username>')
+def clearner(username):
+    user = User.get(username)
+    if user is None: return abort(400)
+    if user.target_screen_name is None: return abort(200)
+
+    tweets = []
+    query = db.Query(Tweet)
+    query = query.filter('base_screen_name = ', user.name)
+    query = query.filter('created_at < ', drop_seconds(datetime.datetime.utcnow()) - datetime.timedelta(days=user.turn_around_span_days))
+    query = query.order('created_at')
+    tweets = query.fetch(1000)
+
+    for tweet in tweets:
+        tweet.delete()
+
+    return 'ok'
+
+@app.route('/task/allclear/<base_screen_name>/<screen_name>')
+def allclear(base_screen_name, screen_name):
     while True:
         tweets = []
         query = db.Query(Tweet)

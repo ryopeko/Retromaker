@@ -5,3 +5,6 @@ cron:
 - description: push diff update list
   url: /cron/push_updatelist
   schedule: every 12 hours
+#- description: clearning feeded tweets
+#  url: /cron/clearning
+#  schedule: every 1 hours

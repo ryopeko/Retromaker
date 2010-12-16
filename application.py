@@ -110,7 +110,7 @@ def update():
         if current.target_screen_name == target_screen_name and current.turn_around_span_days == turn_around_span_days:
             return abort(200)
         elif current.target_screen_name != target_screen_name:
-            taskqueue.add(url='/task/clearning/' + current.name + '/' + current.target_screen_name, method='GET')
+            taskqueue.add(url='/task/allclear/' + current.name + '/' + current.target_screen_name, method='GET')
 
     current.target_screen_name = target_screen_name
     current.turn_around_span_days = turn_around_span_days
@@ -125,7 +125,7 @@ def update():
 def deactivate():
     user = db.get(session['user_key'])
 
-    taskqueue.add(url='/task/clearning/' + user.name + '/' + user.target_screen_name, method='GET')
+    taskqueue.add(url='/task/allclear/' + user.name + '/' + user.target_screen_name, method='GET')
 
     user.delete()
     return redirect('/')

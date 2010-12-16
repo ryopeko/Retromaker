@@ -61,6 +61,14 @@ def push_updatelist():
         
     return str(len(users))
 
+@app.route('/cron/clearning')
+def clearning():
+    users = db.Query(User).filter('target_screen_name != ', None).fetch(1000)
+
+    for user in users:
+        taskqueue.add(url='/task/clearner/' + user.name, method='GET')
+
+    return 'ok'
 
 def string_to_date(date_str):
     d = datetime.datetime.strptime(date_str,'%a %b %d %H:%M:%S +0000 %Y')
