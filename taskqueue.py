@@ -98,10 +98,25 @@ def diff_update(username):
                       'API calls or Twitter is overloaded.')
 
     for tweet in tweets:
-        push_tweet(tweet)
+        tweet.delete()
 
     user.last_tweet_id = Tweet.get_last_tweet_id(base_screen_name=user.name, target_screen_name=user.target_screen_name)
     db.put(user)
+    return 'ok'
+
+@app.route('/task/clearning/<base_screen_name>/<screen_name>')
+def cleaning(base_screen_name, screen_name):
+    while True:
+        tweets = []
+        query = db.Query(Tweet)
+        query = query.filter('base_screen_name = ', base_screen_name)
+        query = query.filter('screen_name = ', screen_name)
+        tweets = query.fetch(1000)
+        if len(tweets) == 0:
+            break
+
+        for tweet in tweets:
+            db.delete(tweet)
     return 'ok'
 
 def push_tweet(tweet):

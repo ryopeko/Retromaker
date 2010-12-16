@@ -29,7 +29,8 @@ selftwitter = TwitterOAuth()
 def login_required(path):
     actions = [
         "/dashboard",
-        "/deactivate"
+        "/deactivate",
+        "/update"
                ]
     for action in actions:
         if action == path:
@@ -103,8 +104,17 @@ def oauth_authorized(resp):
 def update():
     target_screen_name = request.form['target_screen_name']
     current = db.get(session['user_key'])
+    turn_around_span_days = int(request.form['turn_around_span_days'])
+
+    if current.target_screen_name is not None:
+        if current.target_screen_name == target_screen_name and current.turn_around_span_days == turn_around_span_days:
+            return abort(200)
+        elif current.target_screen_name != target_screen_name:
+            taskqueue.add(url='/task/clearning/' + current.name + '/' + current.target_screen_name, method='GET')
+
     current.target_screen_name = target_screen_name
-    current.turn_around_span_days = int(request.form['turn_around_span_days'])
+    current.turn_around_span_days = turn_around_span_days
+
     db.put(current)
 
     taskqueue.add(url='/task/user_initialize/' + current.name, method='GET')
@@ -114,14 +124,9 @@ def update():
 @app.route('/deactivate')
 def deactivate():
     user = db.get(session['user_key'])
-    while True:
-        tweets = []
-        tweets = db.Query(Tweet).filter('base_screen_name = ', user.name).fetch(1000)
-        if len(tweets) == 0:
-            break
 
-        for tweet in tweets:
-            db.delete(tweet)
+    taskqueue.add(url='/task/clearning/' + user.name + '/' + user.target_screen_name, method='GET')
+
     user.delete()
     return redirect('/')
 
